@@ -1,120 +1,196 @@
-""" Mode manager for ADC"""
+
+"""
+Mode Manager module for the ADC.
+"""
+
 from datetime import datetime
-
-# Mode transition table based on Deliverable 2 (T1-T9)
-TABLE = {
-    ("STARTUP", "startup_ok"): "NORMAL",  # T1
-    ("STARTUP", "startup_bad"): "FAULT",  # T2
-
-    ("NORMAL", "fault"): "FAULT",         # T3
-    ("NORMAL", "maint"): "MAINT",         # T4
-
-    ("MAINT", "fault"): "FAULT",          # T5
-    ("MAINT", "exit_ok"): "NORMAL",       # T6
-    ("MAINT", "exit_bad"): "FAULT",       # T7
-
-    ("FAULT", "a_cleared"): "NORMAL",     # T8
-    ("FAULT", "maint"): "MAINT",          # T9
-
-    # Remain in FAULT if another fault is detected
-    ("FAULT", "fault"): "FAULT",
-}
 
 
 class ModeManager:
-    def __init__(self, log):
+
+    def __init__(
+        self,
+        log,
+        alarm_manager=None,
+        fault_detector=None,
+        drawer_controller=None,
+        communication=None
+    ):
         self.log = log
-        self.mode = "STARTUP"
+
+        # Connected system modules
+        self.alarm_manager = alarm_manager
+        self.fault_detector = fault_detector
+        self.drawer_controller = drawer_controller
+        self.communication = communication
+
+        # Initial system state
+        self.current = "STARTUP"
         self.fault_class = "NONE"
-        self.change_handler = []
 
-    def current(self):
-        return self.mode
+        # Tracks transitions for other modules
+        self.on_mode_change = []
 
-    def on_mode_change(self, fn):
-        self.change_handler.append(fn)
+
+    TABLE = {
+        # Startup
+        ("STARTUP", "startup_ok"): "NORMAL",
+        ("STARTUP", "startup_fail"): "FAULT",
+
+        # Normal operation
+        ("NORMAL", "fault"): "FAULT",
+        ("NORMAL", "maint"): "MAINT",
+
+        # Maintenance
+        ("MAINT", "fault"): "FAULT",
+        ("MAINT", "exit_ok"): "NORMAL",
+        ("MAINT", "exit_bad"): "FAULT",
+
+        # Fault mode
+        ("FAULT", "maint"): "MAINT",
+        ("FAULT", "class_a_clear"): "NORMAL",
+    }
+
 
     def trigger(
         self,
         event,
         role=None,
         fault_class="B",
-        safety_check_passed=False
+        safety_check_passed=False,
+        fault=None
     ):
-        key = (self.mode, event)
+        old_mode = self.current
 
-        if key not in TABLE:
-            raise ValueError(
-                f"Invalid transition: {self.mode} -> {event}"
-            )
+        # Technician-only mode changes
+        if event in ("maint", "exit_ok", "exit_bad"):
+            if role != "TECH":
+                return False
 
-        # T4 and T9: Only a technician may enter Maintenance
-        if event == "maint" and role != "TECH":
-            raise ValueError(
-                "Only TECH can enter Maintenance mode"
-            )
+        # Recovery from MAINT requires safety checks
+        if event == "exit_ok":
+            if not safety_check_passed:
+                return False
 
-        # T6 and T7: Only a technician may exit Maintenance
-        if event in ("exit_ok", "exit_bad") and role != "TECH":
-            raise ValueError(
-                "Only TECH can exit Maintenance mode"
-            )
+        if event == "exit_bad":
+            if safety_check_passed:
+                return False
 
-        # T6: Technician exits Maintenance after passing checks
-        if event == "exit_ok" and not safety_check_passed:
-            raise ValueError(
-                "Safety checks must pass before returning to NORMAL"
-            )
-
-        # T8: Only class A faults may recover directly to NORMAL after the fault is cleared and safety checks pass
-        if event == "a_cleared":
+        # Class A faults may recover directly from FAULT
+        if event == "class_a_clear":
             if self.fault_class != "A":
-                raise ValueError(
-                    "Only class A faults can recover directly to NORMAL"
-                )
+                return False
 
             if not safety_check_passed:
-                raise ValueError(
-                    "Safety checks must pass before fault recovery"
-                )
+                return False
+
+        # Class B faults cannot recover directly to NORMAL
+        # They must go FAULT -> MAINT -> NORMAL
+        if old_mode == "FAULT" and event == "class_a_clear":
+            if self.fault_class == "B":
+                return False
+
+        # Find the transition
+        transition = (old_mode, event)
+
+        if transition not in self.TABLE:
+            return False
+
+        new_mode = self.TABLE[transition]
 
         # Update fault classification
-        # Class B takes priority over class A
-        if event in ("fault", "startup_bad", "exit_bad"):
-            if fault_class not in ("A", "B"):
-                raise ValueError("Fault class must be A or B")
+        if event == "fault":
+            self.fault_class = fault_class
 
-            if self.fault_class == "B" or fault_class == "B":
+        elif event == "startup_fail":
+            self.fault_class = "B"
+
+        elif event == "exit_bad":
+            # Preserve existing classification where possible
+            if self.fault_class == "NONE":
                 self.fault_class = "B"
-            else:
-                self.fault_class = "A"
 
-        old_mode = self.mode
-        new_mode = TABLE[key]
+        elif event == "class_a_clear":
+            self.fault_class = "NONE"
 
-        if new_mode != old_mode:
-            self.mode = new_mode
+        elif new_mode == "NORMAL":
+            self.fault_class = "NONE"
 
-            # Clear fault classification upon successful recovery
-            if new_mode == "NORMAL":
-                self.fault_class = "NONE"
+        # Update system mode
+        self.current = new_mode
 
-            timestamp = datetime.now().strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )
+        # Record the mode change
+        self._log_mode_change(old_mode, new_mode, event)
 
-            # Append one mode-change log entry
-            self.log.append(
-                (
-                    timestamp,
-                    "MODE_CHANGE",
-                    None,
-                    f"{old_mode}->{new_mode}"
-                )
-            )
+        # Notify connected modules
+        self._handle_mode_change(old_mode, new_mode, event, fault)
 
-            # Notify modules
-            for fn in self.change_handler:
-                fn(old_mode, new_mode)
+        return True
 
-        return self.mode
+
+    def _handle_mode_change(self, old_mode, new_mode, event, fault):
+
+        # Entering FAULT mode
+        if new_mode == "FAULT":
+
+            # Lock every drawer
+            if self.drawer_controller is not None:
+                self.drawer_controller.lock_all_drawers() # CHANGE: drawercontroller method
+
+            # Raise alarm for a detected fault
+            if self.alarm_manager is not None and fault is not None:
+                self.alarm_manager.raise_alarm(fault)
+
+            # Communicate the fault state
+            if self.communication is not None:
+                data = {
+                    "mode": "FAULT",
+                    "fault_class": self.fault_class,
+                    "fault": fault,
+                    "time": datetime.now().isoformat()
+                }
+
+                self.communication.send("FAULT", data) #CHANGE: make it match communication method
+
+        # Leaving FAULT mode
+        if old_mode == "FAULT" and new_mode != "FAULT":
+
+            # Clear the alarm because the system is no longer in FAULT
+            if self.alarm_manager is not None:
+                self.alarm_manager.clear()
+
+        # Communicate every mode change
+        if self.communication is not None:
+            data = {
+                "old_mode": old_mode,
+                "new_mode": new_mode,
+                "event": event,
+                "time": datetime.now().isoformat()
+            }
+
+            self.communication.send("MODE_CHANGE", data)
+
+        # Notify any registered callbacks
+        for callback in self.on_mode_change:
+            callback(old_mode, new_mode)
+
+
+    def _log_mode_change(self, old_mode, new_mode, event):
+
+        entry = {
+            "type": "MODE_CHANGE",
+            "old_mode": old_mode,
+            "new_mode": new_mode,
+            "event": event,
+            "time": datetime.now().isoformat()
+        }
+
+        self.log.append(entry)
+
+
+    def run_safety_check(self):
+
+        if self.fault_detector is None:
+            return False
+        problems = self.fault_detector.safety_check()
+        return len(problems) == 0

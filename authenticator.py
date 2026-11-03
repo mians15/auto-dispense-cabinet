@@ -65,7 +65,11 @@ class Authenticator:
         # Only technicians may authenticate in MAINT or FAULT
         if role != "TECH" and mode in ("MAINT", "FAULT"):
             self._done(uid, "FAIL")
-            return "REJECTED_" + mode
+            if mode == "MAINT":
+                return "Cabinet in maintenance mode"
+            elif mode == "FAULT":
+                return "Cabinet in fault mode"
+            
 
         current_time = time.time()
         lock_until = self.locked_until.get(uid, 0)
@@ -90,7 +94,7 @@ class Authenticator:
                 self.fails[uid] = 0
 
                 # One log entry for this login attempt
-                self._done(uid, "FAIL_LOCKOUT")
+                self._done(uid, "LOCKED")
 
                 # Trigger security alert
                 self.send_alert(uid)
