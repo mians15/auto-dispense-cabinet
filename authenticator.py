@@ -1,10 +1,10 @@
-"""A simple authenticator for the ADC"""
+"""Authenticator for the ADC"""
 
 import time
 from datetime import datetime
 
 N_FAIL = 3
-T_LOCK = 5  # 5-second lockout for demo/testing (60 seconds in production)
+T_LOCK = 5  # 5 second lockout for demo/testing (60 seconds normally)
 
 
 PERMISSIONS = {
