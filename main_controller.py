@@ -157,9 +157,8 @@ MENU = """
  1 Log in            2 Log out           3 Dispense
  4 Enter maintenance 5 Exit maintenance  6 Wait N seconds     
  7 Show logs         8 Open drawer       9 Take a dose      
- 10 Close drawer     0 Quit    """
-#  11 Jam a lock       12 Kill a sensor   
-# 13 Repair            0 Quit"""
+ 10 Close drawer     11 Jam a Lock       12 Kill a sensor   
+ 13 Repair           0 Quit """
 
 
 def say(code):
@@ -203,6 +202,7 @@ def act_on_cabinet(choice):
         hw.close_drawer(d)
     elif choice == "11":
         hw.jam_lock(d)
+        detector.watch_lock_command(d, "LOCKED")
     else:
         hw.kill_sensor(d)
 
@@ -226,10 +226,11 @@ def show_logs():
 
 
 def main():
-    print("Users: badge B1 pin 1234 = nurse, badge B2 pin 9999 = technician")
-    print("Drugs: morphine (drawer 1), insulin (drawer 2)")
+   
     startup()
     while True:
+        print("Users: badge B1 pin 1234 = nurse, badge B2 pin 9999 = technician")
+        print("Drugs: morphine (drawer 1), insulin (drawer 2)")
         tick()
         show_status()
         print(MENU)
