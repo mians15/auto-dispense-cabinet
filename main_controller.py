@@ -17,7 +17,7 @@ from access_log import Access_Log
 from communication import Communication      
 from inventory import Inventory
 from hardware import Hardware
-from monitor import Monitor
+from monitoring_system import MonitoringSystem
 
 DRAWERS = [1, 2]   # the drawer numbers of the cabinet
 
@@ -27,7 +27,7 @@ USERS = {
 }
 
 hw = Hardware(DRAWERS)
-monit = Monitor() # temporary monitor for demo purposes
+monit = MonitoringSystem() # temporary monitor for demo purposes
 inventory = Inventory()
 comm = Communication(monit)
 access_log = Access_Log(comm)
@@ -40,7 +40,7 @@ detector = FaultDetector(DRAWERS, hw)
 modes = ModeManager(
     mode_log,
     fault_detector=detector
-)
+)   
 auth = Authenticator(USERS, access_log, modes, alarms.raise_security_alert)
 dispenser = Dispenser(auth, inventory, hw, detector, alarms)
 

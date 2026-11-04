@@ -11,5 +11,6 @@ class MonitoringSystem:
             return False
 
         self.received.append(message)
+        print("\nMONITORING SYSTEM:", message)
         # sending acknowledgment to ADC communicator
         return True

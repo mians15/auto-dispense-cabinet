@@ -1,2 +1,7 @@
 Badge Number,Result,Time
 tech1,SUCCESS,12:59:42
+tech1,FAIL,13:07:09
+tech1,SUCCESS,13:07:15
+nurse1,FAIL,13:07:47
+nurse1,FAIL,13:07:51
+nurse1,LOCKED,13:07:58
