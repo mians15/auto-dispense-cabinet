@@ -133,7 +133,7 @@ class Authenticator:
             user_role in roles
             and current_mode in modes
         )
-
+    
     def _done(self, uid, result):
         timestamp = datetime.now().strftime(
             "%Y-%m-%d %H:%M:%S"
