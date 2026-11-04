@@ -41,7 +41,7 @@ class Authenticator:
         self.locked_until = {}
         self.session = None
 
-    def login(self, badge, pin):
+    def _login(self, badge, pin):
         # Only one active session is permitted
         if self.session is not None:
             return "ALREADY_LOGGED_IN"
@@ -112,6 +112,9 @@ class Authenticator:
 
         self._done(uid, "SUCCESS")
         return "SUCCESS"
+
+    def login(self, badge, pin):
+        self._login(badge, pin)
 
     def logout(self):
         self.session = None
