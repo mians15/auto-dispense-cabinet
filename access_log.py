@@ -13,7 +13,7 @@ class Access_Log:
                 csv.writer(f).writerow(["Badge Number", "Result", "Time"])
 
     
-    def update(self, badge, result, time):
+    def __update(self, badge, result, time):
         # append only accepted
         with open(self.filename, "a", newline="") as f:
             csv.writer(f).writerow([badge, result, time])
@@ -21,8 +21,8 @@ class Access_Log:
         # send new update to communicator so it can send it to monitoring system
         self.comm.send_to_communicator("Access Log", f"Badge:{badge}, Login Attempt Result: {result} at {time}")
 
-        
-
+    def update(self, badge, result, time):
+        self.__update(badge, result, time)
 
 
     
