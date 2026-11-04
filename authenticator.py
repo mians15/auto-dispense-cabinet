@@ -46,7 +46,7 @@ class Authenticator:
         if self.session is not None:
             return "ALREADY_LOGGED_IN"
 
-        mode = self.get_mode()
+        mode = self.get_mode.current
         user = self.users.get(badge)
 
         # Unknown badge, record FAIL and return result
@@ -130,7 +130,7 @@ class Authenticator:
         )
 
         user_role = self.session[1]
-        current_mode = self.get_mode()
+        current_mode = self.get_mode.current
 
         return (
             user_role in roles
@@ -142,13 +142,7 @@ class Authenticator:
             "%Y-%m-%d %H:%M:%S"
         )
         # Append one authentication log record
-        self.log.append(
-            (
-                timestamp,
-                "LOGIN",
-                uid,
-                result
-            )
-        )
+        # The access log stores the event time as HH:MM:SS.
+        self.log.update(uid, result, datetime.now().strftime("%H:%M:%S"))
 
         return result

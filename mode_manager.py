@@ -2,7 +2,7 @@
 """
 Mode Manager module for the ADC.
 """
-
+import time
 from datetime import datetime
 
 
@@ -168,7 +168,7 @@ class ModeManager:
                 "time": datetime.now().isoformat()
             }
 
-            self.communication.send("MODE_CHANGE", data)
+            self.communication.send_to_communicator("MODE_CHANGE", str(data))
 
         # Notify any registered callbacks
         for callback in self.on_mode_change:
@@ -182,7 +182,7 @@ class ModeManager:
             "old_mode": old_mode,
             "new_mode": new_mode,
             "event": event,
-            "time": datetime.now().isoformat()
+            "time": datetime.now().strftime("%H:%M:%S")
         }
 
         self.log.append(entry)

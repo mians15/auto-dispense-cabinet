@@ -1,7 +1,7 @@
 """ Alarm manager module for the ADC"""
 
 import time
-
+from datetime import datetime
 DESCRIPTION = {
     "DRAWER_OPEN": "Drawer open too long",
     "NO_REMOVAL":  "No removal detected",
@@ -17,6 +17,7 @@ class AlarmManager:
         self.message = ""            # text the screen should show while the alarm is on
 
     def raise_alarm(self, fault):
+        # Faults are reported as (kind, severity class, affected drawer)
         kind, fault_class, drawer = fault
         self.active = True
         self.message = "FAULT: " + DESCRIPTION[kind]
@@ -24,13 +25,15 @@ class AlarmManager:
             self.message += f" (drawer {drawer})"
         if fault_class == "B":
             self.message += " - Maintenance required"                
-        data = {"kind": kind, "class": fault_class, "drawer": drawer, "time": time.time()}
+        data = {"kind": kind, "class": fault_class, "drawer": drawer, "time": datetime.now().strftime("%H:%M:%S")}
         self.send("ALARM", data)                                    
         if fault_class == "B":
+            # Class B faults require a maintenance notification
             self.send("MAINTENANCE_REQUEST", data)                 
 
     def raise_security_alert(self, user_id):                            
-        self.send("SECURITY_ALERT", {"user_id": user_id, "time": time.time()})
+        # Security alerts are reported without changing the active alarm state
+        self.send("SECURITY_ALERT", {"user_id": user_id, "time": datetime.now().strftime("%H:%M:%S")})
 
     def raise_stock_alert(self, drawer, drug, count, kind):
         self.send(
@@ -40,7 +43,7 @@ class AlarmManager:
                 "drug": drug,
                 "count": count,
                 "type": kind,
-                "time": time.time()
+                "time": datetime.now().strftime("%H:%M:%S")
             }
         )
 

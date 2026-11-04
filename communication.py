@@ -1,4 +1,8 @@
+
+
 from collections import deque
+
+MISS = 3
 
 class Communication:
     def __init__(self, monitor):
@@ -38,4 +42,4 @@ class Communication:
                     
 
     def send_to_communicator(self, source, message):
-        self.__send(source + ": " + message)
+        self.__send(source + ": " +str(message))

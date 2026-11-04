@@ -18,11 +18,11 @@ CLASS_OF = {
 class FaultDetector:
     def __init__(self, drawers, hw):
         self.drawers = drawers
-        self.hw = hw                  # needs: is_open(d), lock_state(d), last_reading(d)
-        self.unlocked = {}            # drawer -> time unlocked, removal expected
-        self.removed = set()          # drawers where a removal was seen
-        self.lock_cmds = {}           # drawer -> expected state, time commanded
-        self.active = {}              # kind, drawer -> fault
+        self.hw = hw                  
+        self.unlocked = {}          
+        self.removed = set()          
+        self.lock_cmds = {}          
+        self.active = {}             
 
 
     def watch_unlock(self, d, expect_removal=True):
