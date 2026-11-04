@@ -114,7 +114,7 @@ class Authenticator:
         return "SUCCESS"
 
     def login(self, badge, pin):
-        self._login(badge, pin)
+        return self._login(badge, pin)
 
     def logout(self):
         self.session = None

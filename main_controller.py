@@ -245,9 +245,8 @@ def main():
             print("Logged out.")
         elif choice == "3":
             drug = ask("Drug: ")
-            qty = ask_number("Quantity: ")
             patient = ask("Patient ID: ")
-            say(dispenser.request(drug, qty, patient))
+            say(dispenser.request(drug, 1, patient))
         elif choice == "4":
             enter_maintenance()
         elif choice == "5":
