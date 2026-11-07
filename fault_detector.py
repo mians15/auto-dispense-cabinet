@@ -2,7 +2,7 @@
 
 import time
 
-T_RESP = 3      # seconds 
+T_RESP = 13 # seconds 
 
 # fault type 
 # "A" clears itself, "B" needs a technician

@@ -1,16 +1,15 @@
 """
-main.py - ADC main controller with a small console menu.
+main.py - ADC main controller with a small console menu
 
 """
 
 import csv
-import os
 import time
 from datetime import datetime
 
 from authenticator import Authenticator
 from mode_manager import ModeManager
-from fault_detector import FaultDetector
+from fault_detector import FaultDetector, CLASS_OF
 from alarm_manager import AlarmManager
 from dispense import Dispenser
 from access_log import Access_Log              
@@ -49,10 +48,9 @@ def stamp():
     return datetime.now().strftime("%H:%M:%S")
 
 
-def change_mode(event, role=None, fault_class="B"):
-    """The only place the mode changes: it tells the Monitoring System and keeps the alarm in step."""
+def change_mode(event, role=None, fault_class="B", safety_check_passed=False):
     old = modes.current
-    modes.trigger(event, role, fault_class)
+    modes.trigger(event, role, fault_class, safety_check_passed)
     new = modes.current
 
     if new != old:
@@ -132,7 +130,7 @@ def tick():
     # a class A fault is over when nothing is active any more and the safety check passes
     if modes.current == "FAULT" and modes.fault_class == "A" and len(detector.active) == 0:
         if len(detector.safety_check()) == 0:
-            change_mode("a_cleared")
+            change_mode("class_a_clear", safety_check_passed=True)
 
 
 MESSAGES = {
@@ -265,7 +263,6 @@ def main():
             print("Everything repaired.")
         else:
             print("Unknown choice.")
-
-
+            
 if __name__ == "__main__":
     main()
