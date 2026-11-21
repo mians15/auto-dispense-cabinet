@@ -19,7 +19,8 @@ class Access_Log:
             csv.writer(f).writerow([badge, result, time])
 
         # send new update to communicator so it can send it to monitoring system
-        self.comm.send_to_communicator("Access Log", f"Badge:{badge}, Login Attempt Result: {result} at {time}")
+        
+        self.comm.send_to_communicator("ACCESS_LOG", {"badge": badge, "result": result, "time": time})
 
     def update(self, badge, result, time):
         self.__update(badge, result, time)

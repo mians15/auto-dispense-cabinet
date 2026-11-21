@@ -1,4 +1,3 @@
-
 """
 Mode Manager module for the ADC.
 """
@@ -48,6 +47,7 @@ class ModeManager:
 
         # Fault mode
         ("FAULT", "maint"): "MAINT",
+        ("FAULT", "fault"): "FAULT",          # a further fault while already in FAULT
         ("FAULT", "class_a_clear"): "NORMAL",
     }
 
@@ -100,7 +100,9 @@ class ModeManager:
 
         # Update fault classification
         if event == "fault":
-            self.fault_class = fault_class
+            # a class B fault is never downgraded to class A
+            if fault_class == "B" or self.fault_class == "NONE":
+                self.fault_class = fault_class
 
         elif event == "startup_fail":
             self.fault_class = "B"
@@ -115,6 +117,10 @@ class ModeManager:
 
         elif new_mode == "NORMAL":
             self.fault_class = "NONE"
+
+        # A further fault while already in FAULT changes the class only, not the mode
+        if new_mode == old_mode:
+            return True
 
         # Update system mode
         self.current = new_mode

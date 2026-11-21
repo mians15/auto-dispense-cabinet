@@ -16,7 +16,8 @@ from access_log import Access_Log
 from communication import Communication      
 from inventory import Inventory
 from hardware import Hardware
-from monitoring_system import MonitoringSystem
+from app import HospitalMonitoringApp          # the Hospital Monitoring System (Part B)
+from monitor_link import MonitorLink
 
 DRAWERS = [1, 2]   # the drawer numbers of the cabinet
 
@@ -26,9 +27,11 @@ USERS = {
 }
 
 hw = Hardware(DRAWERS)
-monit = MonitoringSystem() # temporary monitor for demo purposes
+ms = HospitalMonitoringApp()
+link = MonitorLink(ms, "ADC-01")
+link.register()
 inventory = Inventory()
-comm = Communication(monit)
+comm = Communication(link)
 access_log = Access_Log(comm)
 mode_log = []
 fault_log = []
@@ -42,6 +45,8 @@ modes = ModeManager(
 )   
 auth = Authenticator(USERS, access_log, modes, alarms.raise_security_alert)
 dispenser = Dispenser(auth, inventory, hw, detector, alarms)
+
+sent = {"total": None}   # last inventory total reported to the Monitoring System
 
 # Stamps time for accurate logging
 def stamp():
@@ -85,9 +90,17 @@ def startup():
     if len(problems) == 0:
         change_mode("startup_ok")
     else:
-        change_mode("startup_bad")
+        change_mode("startup_fail")
         for fault in problems_to_faults(problems):
             handle_fault(fault)
+
+
+def restore_network():
+    """Network is back: send everything that was waiting, and the inventory again
+    (the Monitoring System forgets the inventory when an ADC disconnects)."""
+    link.set_online(True)
+    sent["total"] = None
+    comm.send_to_communicator("RECONNECT", "network restored")
 
 
 def enter_maintenance():
@@ -102,28 +115,26 @@ def exit_maintenance():
         return
 
     print("Running safety check...")
-    safety_check_passed = modes.run_safety_check()
+    problems = detector.safety_check()
 
-    if safety_check_passed:
-        modes.trigger(
-            "exit_ok",
-            role=auth.session[1],
-            safety_check_passed=True
-        )
+    if len(problems) == 0:
+        change_mode("exit_ok", role=auth.session[1], safety_check_passed=True)
         print("Safety check passed.")
         print("Exiting maintenance mode.")
     else:
-        modes.trigger(
-            "exit_bad",
-            role=auth.session[1],
-            safety_check_passed=False
-        )
+        change_mode("exit_bad", role=auth.session[1], safety_check_passed=False)
+        for fault in problems_to_faults(problems):
+            handle_fault(fault)
         print("Safety check failed.")
         print("Maintenance required.")
 
 def tick():
     """One pass of the main loop: runs before every menu prompt, and every second during 'Wait'."""
     dispenser.update()
+    total = sum(inventory.counts.values())
+    if total != sent["total"]:
+        sent["total"] = total
+        comm.send_to_communicator("INVENTORY", total)
     for fault in detector.poll():
         handle_fault(fault)
     detector.clear_resolved()
@@ -156,7 +167,8 @@ MENU = """
  4 Enter maintenance 5 Exit maintenance  6 Wait N seconds     
  7 Show logs         8 Open drawer       9 Take a dose      
  10 Close drawer     11 Jam a Lock       12 Kill a sensor   
- 13 Repair           0 Quit """
+ 13 Repair           14 Show monitoring system
+ 15 Acknowledge alarm  16 Network on/off     0 Quit """
 
 
 def say(code):
@@ -261,6 +273,17 @@ def main():
         elif choice == "13":
             hw.repair_all()
             print("Everything repaired.")
+        elif choice == "14":
+            link.show()
+        elif choice == "15":
+            link.acknowledge(ask("Alarm ID (e.g. ALM-001): "))
+        elif choice == "16":
+            if link.online:
+                link.set_online(False)
+                print("Network lost.")
+            else:
+                restore_network()
+                print("Network restored.")
         else:
             print("Unknown choice.")
             
